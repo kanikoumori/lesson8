@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>レシピ管理アプリ</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>🍳 レシピ投稿</h1>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    
+    <form method="POST">
+        <input type="text" name="title" placeholder="タイトル" required>
+        <input type="number" name="minutes" placeholder="所要分数" min="1" required>
+        <textarea name="description" placeholder="説明"></textarea>
+        <button type="submit" class="btn btn-primary">レシピを保存する</button>
+    </form>
+
+    <h2>最新のレシピ</h2>
+    {% for recipe in recipes %}
+    <div class="recipe-item">
+        <strong>{{ recipe.title }}</strong> ({{ recipe.minutes }}分)
+        <p>{{ recipe.description }}</p>
+        <div style="text-align: right;">
+            <a href="{{ url_for('edit', id=recipe.id) }}" class="btn btn-secondary">編集</a>
+            <form action="{{ url_for('delete', id=recipe.id) }}" method="POST" style="display:inline;">
+                <button type="submit" class="btn btn-danger" onclick="return confirm('削除しますか？')">削除</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</body>
+</html>

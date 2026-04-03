@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>レシピ編集</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>📝 レシピを編集</h1>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="POST">
+        <label>タイトル</label>
+        <input type="text" name="title" value="{{ recipe.title }}" required>
+        <label>所要分数</label>
+        <input type="number" name="minutes" value="{{ recipe.minutes }}" min="1" required>
+        <label>説明</label>
+        <textarea name="description" rows="5">{{ recipe.description }}</textarea>
+        <button type="submit" class="btn btn-primary">更新する</button>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">キャンセル</a>
+    </form>
+</body>
+</html>

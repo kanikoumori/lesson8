@@ -1,0 +1,9 @@
+body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #333; }
+.error { color: #721c24; background: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 1rem; }
+form { background: #f9f9f9; padding: 1.5rem; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 2rem; }
+input, textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
+.btn { display: inline-block; padding: 0.6rem 1.2rem; border-radius: 4px; text-decoration: none; border: none; cursor: pointer; }
+.btn-primary { background: #007bff; color: white; }
+.btn-danger { background: #dc3545; color: white; }
+.btn-secondary { background: #6c757d; color: white; }
+.recipe-item { border: 1px solid #eee; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; }
