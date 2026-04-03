@@ -31,102 +31,73 @@ class Recipe(Base):
 
 Base.metadata.create_all(bind=engine)
 
-# --- 共通HTMLテンプレート（編集・一覧の両方で利用） ---
-HTML_LAYOUT = """
+# 共通レイアウト
+# --- テンプレートの定義（変数を整理しました） ---
+BASE_HTML = """
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>レシピ管理アプリ</title>
     <style>
-        body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #333; line-height: 1.6; }
+        body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #333; }
         .error { color: #721c24; background: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 1rem; }
         form { background: #f9f9f9; padding: 1.5rem; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 2rem; }
-        .field { margin-bottom: 1rem; }
-        label { display: block; font-weight: bold; margin-bottom: 0.3rem; }
-        input, textarea { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .btn { display: inline-block; padding: 0.6rem 1.2rem; border-radius: 4px; text-decoration: none; cursor: pointer; border: none; font-size: 0.9rem; }
+        input, textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
+        .btn { display: inline-block; padding: 0.6rem 1.2rem; border-radius: 4px; text-decoration: none; border: none; cursor: pointer; }
         .btn-primary { background: #007bff; color: white; }
         .btn-danger { background: #dc3545; color: white; }
         .btn-secondary { background: #6c757d; color: white; }
-        .recipe-item { border: 1px solid #eee; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; position: relative; }
-        .actions { margin-top: 10px; text-align: right; }
-        .actions a, .actions button { margin-left: 10px; }
+        .recipe-item { border: 1px solid #eee; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; }
     </style>
 </head>
 <body>
-    {% block content %}{% endblock %}
+    {% block main_content %}{% endblock %}
 </body>
 </html>
 """
 
-# --- メイン画面（一覧＆新規投稿） ---
-INDEX_TEMPLATE = """
-{% extends "layout" %}
-{% block content %}
+INDEX_HTML = """
+{% extends base %}
+{% block main_content %}
     <h1>🍳 レシピ投稿</h1>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    
     <form method="POST">
-        <div class="field">
-            <label>タイトル</label>
-            <input type="text" name="title" required>
-        </div>
-        <div class="field">
-            <label>所要分数</label>
-            <input type="number" name="minutes" min="1" required>
-        </div>
-        <div class="field">
-            <label>説明</label>
-            <textarea name="description" rows="2"></textarea>
-        </div>
+        <input type="text" name="title" placeholder="タイトル" required>
+        <input type="number" name="minutes" placeholder="所要分数" min="1" required>
+        <textarea name="description" placeholder="説明"></textarea>
         <button type="submit" class="btn btn-primary">レシピを保存する</button>
     </form>
-
     <h2>最新のレシピ</h2>
     {% for recipe in recipes %}
     <div class="recipe-item">
         <strong>{{ recipe.title }}</strong> ({{ recipe.minutes }}分)
-        <p>{{ recipe.description if recipe.description else '説明なし' }}</p>
-        <div class="actions">
-            <a href="{{ url_for('edit', id=recipe.id) }}" class="btn btn-secondary">編集</a>
-            <form action="{{ url_for('delete', id=recipe.id) }}" method="POST" style="display:inline; background:none; border:none; padding:0; margin:0;">
-                <button type="submit" class="btn btn-danger" onclick="return confirm('本当に削除しますか？')">削除</button>
-            </form>
-        </div>
+        <p>{{ recipe.description }}</p>
+        <a href="{{ url_for('edit', id=recipe.id) }}" class="btn btn-secondary">編集</a>
+        <form action="{{ url_for('delete', id=recipe.id) }}" method="POST" style="display:inline;">
+            <button type="submit" class="btn btn-danger" onclick="return confirm('削除しますか？')">削除</button>
+        </form>
     </div>
     {% endfor %}
 {% endblock %}
 """
 
-# --- 編集画面 ---
-EDIT_TEMPLATE = """
-{% extends "layout" %}
-{% block content %}
+EDIT_HTML = """
+{% extends base %}
+{% block main_content %}
     <h1>📝 レシピを編集</h1>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    
     <form method="POST">
-        <div class="field">
-            <label>タイトル</label>
-            <input type="text" name="title" value="{{ recipe.title }}" required>
-        </div>
-        <div class="field">
-            <label>所要分数</label>
-            <input type="number" name="minutes" value="{{ recipe.minutes }}" min="1" required>
-        </div>
-        <div class="field">
-            <label>説明</label>
-            <textarea name="description" rows="4">{{ recipe.description }}</textarea>
-        </div>
+        <input type="text" name="title" value="{{ recipe.title }}" required>
+        <input type="number" name="minutes" value="{{ recipe.minutes }}" min="1" required>
+        <textarea name="description" rows="5">{{ recipe.description }}</textarea>
         <button type="submit" class="btn btn-primary">更新する</button>
-        <a href="{{ url_for('index') }}" class="btn btn-secondary" style="text-align:center; display:block; margin-top:10px;">キャンセル</a>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">キャンセル</a>
     </form>
 {% endblock %}
 """
 
-# --- ルート設定 ---
+# --- ルート設定（ここを修正しました） ---
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -136,7 +107,6 @@ def index():
         title = request.form.get("title", "").strip()
         minutes = request.form.get("minutes")
         description = request.form.get("description", "").strip()
-        
         if title and minutes:
             try:
                 new_recipe = Recipe(title=title, minutes=int(minutes), description=description)
@@ -146,19 +116,17 @@ def index():
             except Exception as e:
                 db.rollback()
                 error = f"保存エラー: {e}"
-        else:
-            error = "必須項目を入力してください。"
-
+    
     recipes = db.query(Recipe).order_by(Recipe.created_at.desc()).all()
     db.close()
-    return render_template_string(HTML_LAYOUT.replace('{% block content %}{% endblock %}', INDEX_TEMPLATE), recipes=recipes, error=error)
+    # BASE_HTMLをテンプレート内で使えるように引数で渡します
+    return render_template_string(INDEX_HTML, base=BASE_HTML, recipes=recipes, error=error)
 
 @app.route("/edit/<int:id>", methods=["GET", "POST"])
 def edit(id):
     db = SessionLocal()
     recipe = db.query(Recipe).filter(Recipe.id == id).first()
     error = None
-
     if not recipe:
         db.close()
         return "レシピが見つかりません", 404
@@ -167,7 +135,6 @@ def edit(id):
         recipe.title = request.form.get("title", "").strip()
         recipe.minutes = int(request.form.get("minutes", 1))
         recipe.description = request.form.get("description", "").strip()
-        
         try:
             db.commit()
             db.close()
@@ -176,8 +143,8 @@ def edit(id):
             db.rollback()
             error = f"更新エラー: {e}"
 
-    # 編集用HTMLの描画
-    content = render_template_string(HTML_LAYOUT.replace('{% block content %}{% endblock %}', EDIT_TEMPLATE), recipe=recipe, error=error)
+    # ここを修正：INDEX同様にbaseを引数で渡します
+    content = render_template_string(EDIT_HTML, base=BASE_HTML, recipe=recipe, error=error)
     db.close()
     return content
 
@@ -196,5 +163,4 @@ def delete(id):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    debug = os.environ.get("DEBUG", "False").lower() == "true"
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    app.run(host="0.0.0.0", port=port, debug=True) # デバッグをTrueにしています
