@@ -32,8 +32,9 @@ class Recipe(Base):
 Base.metadata.create_all(bind=engine)
 
 # 共通レイアウト
-# --- テンプレートの定義（変数を整理しました） ---
-BASE_HTML = """
+# --- テンプレートの定義 ---
+# INDEX_HTML の中に、直接外枠（HTML構造）をすべて書き込みます。これが一番確実です。
+INDEX_HTML = """
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -52,14 +53,6 @@ BASE_HTML = """
     </style>
 </head>
 <body>
-    {% block main_content %}{% endblock %}
-</body>
-</html>
-"""
-
-INDEX_HTML = """
-{% extends base %}
-{% block main_content %}
     <h1>🍳 レシピ投稿</h1>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
@@ -73,31 +66,52 @@ INDEX_HTML = """
     <div class="recipe-item">
         <strong>{{ recipe.title }}</strong> ({{ recipe.minutes }}分)
         <p>{{ recipe.description }}</p>
-        <a href="{{ url_for('edit', id=recipe.id) }}" class="btn btn-secondary">編集</a>
-        <form action="{{ url_for('delete', id=recipe.id) }}" method="POST" style="display:inline;">
-            <button type="submit" class="btn btn-danger" onclick="return confirm('削除しますか？')">削除</button>
-        </form>
+        <div style="text-align: right;">
+            <a href="{{ url_for('edit', id=recipe.id) }}" class="btn btn-secondary">編集</a>
+            <form action="{{ url_for('delete', id=recipe.id) }}" method="POST" style="display:inline; background:none; border:none; padding:0; margin:0;">
+                <button type="submit" class="btn btn-danger" onclick="return confirm('本当に削除しますか？')">削除</button>
+            </form>
+        </div>
     </div>
     {% endfor %}
-{% endblock %}
+</body>
+</html>
 """
 
 EDIT_HTML = """
-{% extends base %}
-{% block main_content %}
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>レシピ編集</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #333; }
+        .error { color: #721c24; background: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 1rem; }
+        form { background: #f9f9f9; padding: 1.5rem; border-radius: 8px; border: 1px solid #ddd; }
+        input, textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; box-sizing: border-box; }
+        .btn { display: inline-block; padding: 0.6rem 1.2rem; border-radius: 4px; text-decoration: none; border: none; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+    </style>
+</head>
+<body>
     <h1>📝 レシピを編集</h1>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     <form method="POST">
+        <label>タイトル</label>
         <input type="text" name="title" value="{{ recipe.title }}" required>
+        <label>所要分数</label>
         <input type="number" name="minutes" value="{{ recipe.minutes }}" min="1" required>
+        <label>説明</label>
         <textarea name="description" rows="5">{{ recipe.description }}</textarea>
         <button type="submit" class="btn btn-primary">更新する</button>
         <a href="{{ url_for('index') }}" class="btn btn-secondary">キャンセル</a>
     </form>
-{% endblock %}
+</body>
+</html>
 """
 
-# --- ルート設定（ここを修正しました） ---
+# --- ルート設定 ---
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -119,8 +133,7 @@ def index():
     
     recipes = db.query(Recipe).order_by(Recipe.created_at.desc()).all()
     db.close()
-    # BASE_HTMLをテンプレート内で使えるように引数で渡します
-    return render_template_string(INDEX_HTML, base=BASE_HTML, recipes=recipes, error=error)
+    return render_template_string(INDEX_HTML, recipes=recipes, error=error)
 
 @app.route("/edit/<int:id>", methods=["GET", "POST"])
 def edit(id):
@@ -143,8 +156,7 @@ def edit(id):
             db.rollback()
             error = f"更新エラー: {e}"
 
-    # ここを修正：INDEX同様にbaseを引数で渡します
-    content = render_template_string(EDIT_HTML, base=BASE_HTML, recipe=recipe, error=error)
+    content = render_template_string(EDIT_HTML, recipe=recipe, error=error)
     db.close()
     return content
 
@@ -163,4 +175,4 @@ def delete(id):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
-    app.run(host="0.0.0.0", port=port, debug=True) # デバッグをTrueにしています
+    app.run(host="0.0.0.0", port=port, debug=True)
