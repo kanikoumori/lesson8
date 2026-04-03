@@ -5,26 +5,22 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
-# .envファイルから環境変数を読み込む（ローカル開発用）
 load_dotenv()
 
 app = Flask(__name__)
 
 # --- データベース設定 ---
-# Renderが提供する postgres:// を SQLAlchemy用の postgresql+psycopg:// に置換
-# ※Python 3.13/3.14環境向けに最新の psycopg ドライバを使用します
 database_url = os.environ.get("DATABASE_URL")
 if database_url and database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
 elif database_url and database_url.startswith("postgresql://"):
     database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 
-# データベース接続エンジンの作成
 engine = create_engine(database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# --- データモデル定義 ---
+# --- データモデル ---
 class Recipe(Base):
     __tablename__ = "recipes"
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -33,86 +29,115 @@ class Recipe(Base):
     description = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-# 起動時にテーブルを自動作成
 Base.metadata.create_all(bind=engine)
 
-# --- 画面デザイン (HTML/CSS) ---
-HTML_TEMPLATE = """
+# --- 共通HTMLテンプレート（編集・一覧の両方で利用） ---
+HTML_LAYOUT = """
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>レシピ投稿アプリ</title>
+    <title>レシピ管理アプリ</title>
     <style>
-        body { font-family: "Helvetica Neue", Arial, sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; color: #333; }
-        .error { color: #721c24; background-color: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 1rem; }
-        form { background: #f9f9f9; padding: 1.5rem; border-radius: 8px; border: 1px solid #ddd; }
+        body { font-family: sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; color: #333; line-height: 1.6; }
+        .error { color: #721c24; background: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 1rem; }
+        form { background: #f9f9f9; padding: 1.5rem; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 2rem; }
         .field { margin-bottom: 1rem; }
-        label { display: block; font-weight: bold; margin-bottom: 0.5rem; }
-        input, textarea { width: 100%; padding: 0.5rem; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #007bff; color: white; border: none; padding: 0.7rem 1.5rem; border-radius: 4px; cursor: pointer; width: 100%; font-size: 1rem; }
-        button:hover { background: #0056b3; }
-        .recipe-list { margin-top: 2rem; }
-        .recipe-item { border-bottom: 1px solid #eee; padding: 1rem 0; }
-        .recipe-item:last-child { border: none; }
-        .time { color: #666; font-size: 0.9rem; }
+        label { display: block; font-weight: bold; margin-bottom: 0.3rem; }
+        input, textarea { width: 100%; padding: 0.6rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn { display: inline-block; padding: 0.6rem 1.2rem; border-radius: 4px; text-decoration: none; cursor: pointer; border: none; font-size: 0.9rem; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .recipe-item { border: 1px solid #eee; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; position: relative; }
+        .actions { margin-top: 10px; text-align: right; }
+        .actions a, .actions button { margin-left: 10px; }
     </style>
 </head>
 <body>
-    <h1>🍳 レシピ投稿</h1>
-
-    {% if error %}
-    <div class="error">{{ error }}</div>
-    {% endif %}
-
-    <form method="POST">
-        <div class="field">
-            <label>タイトル (必須)</label>
-            <input type="text" name="title" required placeholder="例: 簡単肉じゃが">
-        </div>
-        <div class="field">
-            <label>所要分数 (必須・1分以上)</label>
-            <input type="number" name="minutes" min="1" required placeholder="30">
-        </div>
-        <div class="field">
-            <label>説明 (任意)</label>
-            <textarea name="description" rows="3"></textarea>
-        </div>
-        <button type="submit">レシピを保存する</button>
-    </form>
-
-    <div class="recipe-list">
-        <h2>最新のレシピ</h2>
-        {% for recipe in recipes %}
-        <div class="recipe-item">
-            <strong>{{ recipe.title }}</strong> <span class="time">({{ recipe.minutes }}分)</span>
-            <p>{{ recipe.description if recipe.description else '説明はありません' }}</p>
-        </div>
-        {% else %}
-        <p>登録されたレシピはまだありません。</p>
-        {% endfor %}
-    </div>
+    {% block content %}{% endblock %}
 </body>
 </html>
 """
+
+# --- メイン画面（一覧＆新規投稿） ---
+INDEX_TEMPLATE = """
+{% extends "layout" %}
+{% block content %}
+    <h1>🍳 レシピ投稿</h1>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    
+    <form method="POST">
+        <div class="field">
+            <label>タイトル</label>
+            <input type="text" name="title" required>
+        </div>
+        <div class="field">
+            <label>所要分数</label>
+            <input type="number" name="minutes" min="1" required>
+        </div>
+        <div class="field">
+            <label>説明</label>
+            <textarea name="description" rows="2"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">レシピを保存する</button>
+    </form>
+
+    <h2>最新のレシピ</h2>
+    {% for recipe in recipes %}
+    <div class="recipe-item">
+        <strong>{{ recipe.title }}</strong> ({{ recipe.minutes }}分)
+        <p>{{ recipe.description if recipe.description else '説明なし' }}</p>
+        <div class="actions">
+            <a href="{{ url_for('edit', id=recipe.id) }}" class="btn btn-secondary">編集</a>
+            <form action="{{ url_for('delete', id=recipe.id) }}" method="POST" style="display:inline; background:none; border:none; padding:0; margin:0;">
+                <button type="submit" class="btn btn-danger" onclick="return confirm('本当に削除しますか？')">削除</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+{% endblock %}
+"""
+
+# --- 編集画面 ---
+EDIT_TEMPLATE = """
+{% extends "layout" %}
+{% block content %}
+    <h1>📝 レシピを編集</h1>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    
+    <form method="POST">
+        <div class="field">
+            <label>タイトル</label>
+            <input type="text" name="title" value="{{ recipe.title }}" required>
+        </div>
+        <div class="field">
+            <label>所要分数</label>
+            <input type="number" name="minutes" value="{{ recipe.minutes }}" min="1" required>
+        </div>
+        <div class="field">
+            <label>説明</label>
+            <textarea name="description" rows="4">{{ recipe.description }}</textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">更新する</button>
+        <a href="{{ url_for('index') }}" class="btn btn-secondary" style="text-align:center; display:block; margin-top:10px;">キャンセル</a>
+    </form>
+{% endblock %}
+"""
+
+# --- ルート設定 ---
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     db = SessionLocal()
     error = None
     if request.method == "POST":
-        title = request.form.get("title")
+        title = request.form.get("title", "").strip()
         minutes = request.form.get("minutes")
-        description = request.form.get("description")
-
-        # バリデーション
-        if not title:
-            error = "タイトルは必須です。"
-        elif not minutes or not minutes.isdigit() or int(minutes) < 1:
-            error = "所要分数は1以上の数値を入力してください。"
+        description = request.form.get("description", "").strip()
         
-        if not error:
+        if title and minutes:
             try:
                 new_recipe = Recipe(title=title, minutes=int(minutes), description=description)
                 db.add(new_recipe)
@@ -120,11 +145,54 @@ def index():
                 return redirect(url_for('index'))
             except Exception as e:
                 db.rollback()
-                error = f"保存中にエラーが発生しました: {e}"
+                error = f"保存エラー: {e}"
+        else:
+            error = "必須項目を入力してください。"
 
     recipes = db.query(Recipe).order_by(Recipe.created_at.desc()).all()
     db.close()
-    return render_template_string(HTML_TEMPLATE, recipes=recipes, error=error)
+    return render_template_string(HTML_LAYOUT.replace('{% block content %}{% endblock %}', INDEX_TEMPLATE), recipes=recipes, error=error)
+
+@app.route("/edit/<int:id>", methods=["GET", "POST"])
+def edit(id):
+    db = SessionLocal()
+    recipe = db.query(Recipe).filter(Recipe.id == id).first()
+    error = None
+
+    if not recipe:
+        db.close()
+        return "レシピが見つかりません", 404
+
+    if request.method == "POST":
+        recipe.title = request.form.get("title", "").strip()
+        recipe.minutes = int(request.form.get("minutes", 1))
+        recipe.description = request.form.get("description", "").strip()
+        
+        try:
+            db.commit()
+            db.close()
+            return redirect(url_for('index'))
+        except Exception as e:
+            db.rollback()
+            error = f"更新エラー: {e}"
+
+    # 編集用HTMLの描画
+    content = render_template_string(HTML_LAYOUT.replace('{% block content %}{% endblock %}', EDIT_TEMPLATE), recipe=recipe, error=error)
+    db.close()
+    return content
+
+@app.route("/delete/<int:id>", methods=["POST"])
+def delete(id):
+    db = SessionLocal()
+    recipe = db.query(Recipe).filter(Recipe.id == id).first()
+    if recipe:
+        try:
+            db.delete(recipe)
+            db.commit()
+        except Exception as e:
+            db.rollback()
+    db.close()
+    return redirect(url_for('index'))
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
